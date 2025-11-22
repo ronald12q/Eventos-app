@@ -1,13 +1,18 @@
 import { auth, db } from '@/config/firebase';
+import * as WebBrowser from 'expo-web-browser';
 import {
-    createUserWithEmailAndPassword,
-    sendPasswordResetEmail,
-    signInWithEmailAndPassword,
-    signOut,
-    updateProfile,
-    User
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  sendPasswordResetEmail,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  User
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export interface UserData {
   uid: string;
@@ -87,6 +92,42 @@ export const resetPassword = async (email: string): Promise<void> => {
   }
 };
 
+// Iniciar sesión con Google usando expo-auth-session
+export const loginWithGoogle = async (idToken: string): Promise<User> => {
+  try {
+    // Crear credencial de Google con el token
+    const credential = GoogleAuthProvider.credential(idToken);
+    
+    // Iniciar sesión en Firebase con las credenciales de Google
+    const userCredential = await signInWithCredential(auth, credential);
+    const user = userCredential.user;
+    
+    // Verificar si el usuario ya existe en Firestore
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    
+    if (!userDoc.exists()) {
+      // Crear documento para usuario nuevo de Google
+      const userData: UserData = {
+        uid: user.uid,
+        username: user.displayName || 'Usuario',
+        email: user.email || '',
+        userType: 'usuario',
+        photoURL: user.photoURL,
+        displayName: user.displayName || undefined,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isActive: true,
+        isVerified: true
+      };
+      
+      await setDoc(doc(db, 'users', user.uid), userData);
+    }
+    
+    return user;
+  } catch (error: any) {
+    throw new Error(error.message);
+  }
+};
 
 export const getUserData = async (uid: string): Promise<UserData | null> => {
   try {

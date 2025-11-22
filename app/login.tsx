@@ -1,7 +1,9 @@
-import { loginUser } from '@/services/authService';
+import { loginUser, loginWithGoogle } from '@/services/authService';
+import * as Google from 'expo-auth-session/providers/google';
 import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   StatusBar,
@@ -12,11 +14,41 @@ import {
   View
 } from 'react-native';
 
+WebBrowser.maybeCompleteAuthSession();
+
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // Configurar Google Auth
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: '180398572872-dgn8f4hc9msjbhhcbabbiss8q0atjtck.apps.googleusercontent.com',
+    scopes: ['profile', 'email'],
+  });
+
+  // Manejar respuesta de Google
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication } = response;
+      if (authentication?.idToken) {
+        handleGoogleResponse(authentication.idToken);
+      }
+    }
+  }, [response]);
+
+  const handleGoogleResponse = async (idToken: string) => {
+    setLoading(true);
+    try {
+      await loginWithGoogle(idToken);
+      router.push('/(tabs)');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Error al iniciar sesión con Google');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -32,6 +64,14 @@ export default function LoginScreen() {
       Alert.alert('Error', error.message || 'Error al iniciar sesión');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await promptAsync();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo iniciar el proceso de autenticación');
     }
   };
 
@@ -79,15 +119,19 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </Link>
 
-   
-      <TouchableOpacity style={styles.googleButtonContainer}>
+      {/* Google Sign In Button */}
+      <TouchableOpacity 
+        style={styles.googleButtonContainer}
+        onPress={handleGoogleSignIn}
+        disabled={loading}
+      >
         <Image 
           source={require('@/assets/images/google.png')} 
           style={styles.googleIcon}
         />
       </TouchableOpacity>
 
-    
+      {/* Create Account Link */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>DON'T YOU HAVE AN ACCOUNT? </Text>
         <Link href="/register" asChild>

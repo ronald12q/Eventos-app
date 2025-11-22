@@ -49,6 +49,17 @@ export default function RegisterScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
+      {/* Botón de regresar */}
+      <TouchableOpacity 
+        style={styles.backIconContainer}
+        onPress={() => router.back()}
+      >
+        <Image 
+          source={require('@/assets/images/back.png')} 
+          style={styles.backIcon}
+        />
+      </TouchableOpacity>
+      
      
       <TouchableOpacity 
         style={styles.backIconContainer}
