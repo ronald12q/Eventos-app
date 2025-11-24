@@ -1,38 +1,62 @@
+import { auth, db } from '@/config/firebase';
 import { logoutUser } from '@/services/authService';
+import { getUserConfirmedEvents, getUserCreatedEvents, type EventData } from '@/services/eventService';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import React from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { doc, getDoc } from 'firebase/firestore';
+import React, { useCallback, useState } from 'react';
 import {
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-
-// Datos de ejemplo del usuario
-const USUARIO = {
-  nombre: 'STEVEN',
-  email: 'steven@gmail.com',
-};
-
-// Eventos asistidos de ejemplo
-const EVENTOS_ASISTIDOS = [
-  {
-    id: '1',
-    nombre: 'BODA',
-    fecha: '24 DE NOVIEMBRE DE 2025',
-  },
-  {
-    id: '2',
-    nombre: 'GRADUACION',
-    fecha: '1 DE NOVIEMBRE DE 2025',
-  },
-];
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [eventos, setEventos] = useState<EventData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [userType, setUserType] = useState<'usuario' | 'organizador'>('usuario');
+
+  const loadUserData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const user = auth.currentUser;
+      if (user) {
+        setUserName(user.displayName || 'Usuario');
+        setUserEmail(user.email || '');
+        
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserType(userData.userType);
+          
+          if (userData.userType === 'organizador') {
+            const eventosCreados = await getUserCreatedEvents();
+            setEventos(eventosCreados);
+          } else {
+            const eventosConfirmados = await getUserConfirmedEvents();
+            setEventos(eventosConfirmados);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar datos del perfil:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+    }, [loadUserData])
+  );
 
   const handleLogout = async () => {
     try {
@@ -52,7 +76,7 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Avatar y datos del usuario */}
+     
         <View style={styles.profileHeader}>
           <View style={styles.avatarContainer}>
             <Image
@@ -60,34 +84,55 @@ export default function ProfileScreen() {
               style={styles.avatarImage}
             />
           </View>
-          <Text style={styles.userName}>{USUARIO.nombre}</Text>
-          <Text style={styles.userEmail}>{USUARIO.email}</Text>
+          <Text style={styles.userName}>{userName.toUpperCase()}</Text>
+          <Text style={styles.userEmail}>{userEmail}</Text>
         </View>
 
-        {/* Sección de eventos asistidos */}
         <View style={styles.eventsSection}>
-          <Text style={styles.sectionTitle}>EVENTOS ASISTIDOS</Text>
+          <Text style={styles.sectionTitle}>
+            {userType === 'organizador' ? 'MIS EVENTOS CREADOS' : 'EVENTOS ASISTIDOS'}
+          </Text>
 
-          {EVENTOS_ASISTIDOS.map((evento) => (
-            <View key={evento.id} style={styles.eventoCard}>
-              {/* Icono de calendario */}
-              <View style={styles.iconContainer}>
-                <Image
-                  source={require('@/assets/images/calendar.png')}
-                  style={styles.calendarIcon}
-                />
-              </View>
-
-              {/* Información del evento */}
-              <View style={styles.eventoInfo}>
-                <Text style={styles.eventoNombre}>{evento.nombre}</Text>
-                <Text style={styles.eventoFecha}>{evento.fecha}</Text>
-              </View>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#00D9FF" />
+              <Text style={styles.loadingText}>Cargando eventos...</Text>
             </View>
-          ))}
+          ) : eventos.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {userType === 'organizador' 
+                  ? 'No has creado ningún evento aún' 
+                  : 'No has confirmado asistencia a ningún evento'}
+              </Text>
+            </View>
+          ) : (
+            eventos.map((evento) => (
+              <View key={evento.id} style={styles.eventoCard}>
+                <View style={styles.iconContainer}>
+                  <Image
+                    source={require('@/assets/images/calendar.png')}
+                    style={styles.calendarIcon}
+                  />
+                </View>
+
+                <View style={styles.eventoInfo}>
+                  <Text style={styles.eventoNombre}>{evento.nombre}</Text>
+                  <View style={styles.eventoDetalles}>
+                    <Text style={styles.eventoFecha}>{evento.fecha}</Text>
+                    {userType === 'organizador' && (
+                      <Text style={styles.eventoAsistentes}>
+                        {evento.asistentes?.length || 0} asistentes
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
         </View>
 
-        {/* Botón Log Out */}
+       
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>LOG OUT</Text>
         </TouchableOpacity>
@@ -150,6 +195,28 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     letterSpacing: 1.5,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    color: '#999',
+    fontSize: 14,
+    marginTop: 10,
+    letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
   eventoCard: {
     backgroundColor: '#2A2A2A',
     borderRadius: 20,
@@ -181,9 +248,20 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     letterSpacing: 1,
   },
+  eventoDetalles: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   eventoFecha: {
     fontSize: 12,
     color: '#999',
+    letterSpacing: 0.5,
+  },
+  eventoAsistentes: {
+    fontSize: 11,
+    color: '#00D9FF',
+    fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   logoutButton: {

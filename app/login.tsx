@@ -5,13 +5,14 @@ import { Link, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -22,13 +23,13 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Configurar Google Auth
+ 
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: '180398572872-dgn8f4hc9msjbhhcbabbiss8q0atjtck.apps.googleusercontent.com',
     scopes: ['profile', 'email'],
   });
 
-  // Manejar respuesta de Google
+
   useEffect(() => {
     if (response?.type === 'success') {
       const { authentication } = response;
@@ -59,6 +60,10 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await loginUser(email, password);
+      
+      setEmail('');
+      setPassword('');
+      
       router.push('/(tabs)');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al iniciar sesión');
@@ -104,12 +109,21 @@ export default function LoginScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          autoCapitalize="none"
         />
       </View>
 
   
-      <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-        <Text style={styles.signInButtonText}>SIGN IN</Text>
+      <TouchableOpacity 
+        style={[styles.signInButton, loading && styles.signInButtonDisabled]} 
+        onPress={handleSignIn}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#000" />
+        ) : (
+          <Text style={styles.signInButtonText}>SIGN IN</Text>
+        )}
       </TouchableOpacity>
 
  
@@ -119,7 +133,7 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </Link>
 
-      {/* Google Sign In Button */}
+     
       <TouchableOpacity 
         style={styles.googleButtonContainer}
         onPress={handleGoogleSignIn}
@@ -131,7 +145,7 @@ export default function LoginScreen() {
         />
       </TouchableOpacity>
 
-      {/* Create Account Link */}
+     
       <View style={styles.footer}>
         <Text style={styles.footerText}>DON'T YOU HAVE AN ACCOUNT? </Text>
         <Link href="/register" asChild>

@@ -14,6 +14,20 @@ import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 WebBrowser.maybeCompleteAuthSession();
 
+const getErrorMessage = (errorCode: string): string => {
+  const errorMessages: Record<string, string> = {
+    'auth/user-not-found': 'No existe una cuenta con este correo',
+    'auth/wrong-password': 'Contraseña incorrecta',
+    'auth/email-already-in-use': 'Este correo ya está registrado',
+    'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres',
+    'auth/invalid-email': 'Correo electrónico inválido',
+    'auth/invalid-credential': 'Credenciales incorrectas. Verifica tu correo y contraseña',
+    'auth/too-many-requests': 'Demasiados intentos fallidos. Intenta más tarde',
+    'auth/network-request-failed': 'Error de conexión. Verifica tu internet',
+  };
+  return errorMessages[errorCode] || 'Error al autenticar. Intenta nuevamente';
+};
+
 export interface UserData {
   uid: string;
   username: string;
@@ -70,7 +84,7 @@ export const loginUser = async (email: string, password: string): Promise<User> 
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (error: any) {
-    throw new Error(error.message);
+    throw new Error(getErrorMessage(error.code));
   }
 };
 
@@ -88,25 +102,25 @@ export const resetPassword = async (email: string): Promise<void> => {
   try {
     await sendPasswordResetEmail(auth, email);
   } catch (error: any) {
-    throw new Error(error.message);
+    throw new Error(getErrorMessage(error.code));
   }
 };
 
-// Iniciar sesión con Google usando expo-auth-session
+
 export const loginWithGoogle = async (idToken: string): Promise<User> => {
   try {
-    // Crear credencial de Google con el token
+
     const credential = GoogleAuthProvider.credential(idToken);
     
-    // Iniciar sesión en Firebase con las credenciales de Google
+    
     const userCredential = await signInWithCredential(auth, credential);
     const user = userCredential.user;
     
-    // Verificar si el usuario ya existe en Firestore
+  
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     
     if (!userDoc.exists()) {
-      // Crear documento para usuario nuevo de Google
+     
       const userData: UserData = {
         uid: user.uid,
         username: user.displayName || 'Usuario',
@@ -125,7 +139,7 @@ export const loginWithGoogle = async (idToken: string): Promise<User> => {
     
     return user;
   } catch (error: any) {
-    throw new Error(error.message);
+    throw new Error(getErrorMessage(error.code));
   }
 };
 

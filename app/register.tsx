@@ -3,14 +3,14 @@ import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 export default function RegisterScreen() {
@@ -35,9 +35,22 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       await registerUser(email, password, username, userType);
-      Alert.alert('Éxito', 'Cuenta creada correctamente', [
-        { text: 'OK', onPress: () => router.push('/login') }
-      ]);
+      
+      setUsername('');
+      setEmail('');
+      setPassword('');
+      setUserType('usuario');
+      
+      Alert.alert(
+        '¡Registro exitoso!', 
+        'Tu cuenta ha sido creada correctamente. Ahora puedes iniciar sesión.',
+        [
+          { 
+            text: 'Ir a Login', 
+            onPress: () => router.push('/login')
+          }
+        ]
+      );
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al crear cuenta');
     } finally {
@@ -49,7 +62,7 @@ export default function RegisterScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Botón de regresar */}
+     
       <TouchableOpacity 
         style={styles.backIconContainer}
         onPress={() => router.back()}

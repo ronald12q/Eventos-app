@@ -1,7 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import { auth, db } from '@/config/firebase';
+import { createEvent } from '@/services/eventService';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StatusBar,
@@ -19,7 +23,39 @@ export default function AddScreen() {
   const [descripcion, setDescripcion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isOrganizador, setIsOrganizador] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    const checkUserAccess = async () => {
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.userType === 'organizador') {
+              setIsOrganizador(true);
+            } else {
+              Alert.alert(
+                'Acceso denegado',
+                'Solo los organizadores pueden crear eventos.',
+                [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+              );
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking access:', error);
+        router.replace('/(tabs)');
+      } finally {
+        setCheckingAccess(false);
+      }
+    };
+
+    checkUserAccess();
+  }, []);
 
   const handleCreateEvent = async () => {
     if (!titulo || !fecha || !hora || !descripcion || !ubicacion) {
@@ -29,20 +65,46 @@ export default function AddScreen() {
 
     setLoading(true);
     try {
-   
-      Alert.alert('Éxito', 'Evento creado correctamente');
-
+      await createEvent(titulo, descripcion, ubicacion, fecha, hora);
+      
       setTitulo('');
       setFecha('');
       setHora('');
       setDescripcion('');
       setUbicacion('');
+      
+      Alert.alert(
+        '¡Evento creado!', 
+        'Tu evento ha sido publicado exitosamente y ya está visible para otros usuarios.',
+        [
+          { 
+            text: 'Ver eventos', 
+            onPress: () => router.push('/(tabs)')
+          }
+        ]
+      );
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al crear evento');
     } finally {
       setLoading(false);
     }
   };
+
+  if (checkingAccess) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00D9FF" />
+          <Text style={styles.loadingText}>Verificando permisos...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!isOrganizador) {
+    return null;
+  }
 
   return (
     <View style={styles.container}>
@@ -58,15 +120,10 @@ export default function AddScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <View style={styles.backIconContainer}>
-            <Ionicons name="chevron-back" size={24} color="#00D9FF" />
-            <Ionicons 
-              name="chevron-back" 
-              size={24} 
-              color="#00D9FF" 
-              style={styles.backIconSecond}
-            />
-          </View>
+          <Image 
+            source={require('@/assets/images/back.png')} 
+            style={styles.backIcon}
+          />
         </TouchableOpacity>
 
   
@@ -91,7 +148,6 @@ export default function AddScreen() {
             placeholderTextColor="#666"
             value={fecha}
             onChangeText={setFecha}
-            keyboardType="numeric"
           />
         </View>
 
@@ -103,7 +159,6 @@ export default function AddScreen() {
             placeholderTextColor="#666"
             value={hora}
             onChangeText={setHora}
-            keyboardType="numeric"
           />
         </View>
 
@@ -136,7 +191,11 @@ export default function AddScreen() {
           onPress={handleCreateEvent}
           disabled={loading}
         >
-          <Text style={styles.createButtonText}>CREAR</Text>
+          {loading ? (
+            <ActivityIndicator color="#000" />
+          ) : (
+            <Text style={styles.createButtonText}>CREAR</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -159,18 +218,9 @@ const styles = StyleSheet.create({
   backButton: {
     marginBottom: 30,
   },
-  backIconContainer: {
+  backIcon: {
     width: 60,
     height: 60,
-    backgroundColor: '#00D9FF',
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  backIconSecond: {
-    position: 'absolute',
-    left: 14,
   },
   title: {
     fontSize: 28,
@@ -206,5 +256,16 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     letterSpacing: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#999',
+    fontSize: 14,
+    marginTop: 10,
+    letterSpacing: 0.5,
   },
 });

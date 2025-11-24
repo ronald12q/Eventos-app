@@ -1,28 +1,57 @@
+import { cancelAttendance, EventData, getUserConfirmedEvents } from '@/services/eventService';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
-
-
-const EVENTOS_CONFIRMADOS = [
-  {
-    id: '1',
-    nombre: 'BODA',
-    fecha: '24 DE NOVIEMBRE DE 2025',
-  },
-  {
-    id: '2',
-    nombre: 'GRADUACION',
-    fecha: '1 DE NOVIEMBRE DE 2025',
-  },
-  {
-    id: '3',
-    nombre: 'FIESTA HALLOWEEN',
-    fecha: '31 DE OCTUBRE DE 2025',
-  },
-];
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import {
+    ActivityIndicator,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 export default function CalendarScreen() {
+  const [eventos, setEventos] = useState<EventData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadConfirmedEvents = async () => {
+    try {
+      setLoading(true);
+      const data = await getUserConfirmedEvents();
+      setEventos([...data]);
+    } catch (error: any) {
+      alert(error.message || 'Error al cargar eventos confirmados');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+ 
+  useFocusEffect(
+    useCallback(() => {
+      loadConfirmedEvents();
+    }, [])
+  );
+
+  const handleCancelAttendance = async (eventId: string, eventName: string) => {
+    const confirmed = confirm(`¿Estás seguro de cancelar tu asistencia a "${eventName}"?`);
+    
+    if (confirmed) {
+      try {
+        setLoading(true);
+        await cancelAttendance(eventId);
+        await loadConfirmedEvents();
+        alert('Has cancelado tu asistencia al evento');
+      } catch (error: any) {
+        console.error('Error al cancelar:', error);
+        alert(error.message || 'Error al cancelar asistencia');
+        setLoading(false);
+      }
+    }
+  };
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -38,27 +67,58 @@ export default function CalendarScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {EVENTOS_CONFIRMADOS.map((evento) => (
-          <View key={evento.id} style={styles.eventoCard}>
-           
-            <View style={styles.iconContainer}>
-              <Image
-                source={require('@/assets/images/calendar.png')}
-                style={styles.calendarIcon}
-              />
-            </View>
-
-            
-            <View style={styles.eventoInfo}>
-              <Text style={styles.eventoNombre}>{evento.nombre}</Text>
-              <Text style={styles.eventoFecha}>{evento.fecha}</Text>
-            </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#00D9FF" />
+            <Text style={styles.loadingText}>Cargando eventos...</Text>
           </View>
-        ))}
+        ) : eventos.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="calendar-outline" size={60} color="#666" />
+            <Text style={styles.emptyText}>
+            
+            </Text>
+          </View>
+        ) : (
+          <>
+            {eventos.map((evento) => (
+              <View key={evento.id} style={styles.eventoCard}>
+               
+                <View style={styles.iconContainer}>
+                  <Image
+                    source={require('@/assets/images/calendar.png')}
+                    style={styles.calendarIcon}
+                  />
+                </View>
 
-        <View style={styles.moreIndicator}>
-          <Ionicons name="chevron-down" size={40} color="#00D9FF" />
-        </View>
+                
+                <View style={styles.eventoInfo}>
+                  <Text style={styles.eventoNombre}>{evento.nombre}</Text>
+                  <Text style={styles.eventoFecha}>{evento.fecha} {evento.hora}</Text>
+                </View>
+
+                
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    if (evento.id) {
+                      handleCancelAttendance(evento.id, evento.nombre);
+                    } else {
+                      alert('ID de evento no disponible');
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.cancelButtonText}>CANCELAR</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <View style={styles.moreIndicator}>
+              <Ionicons name="chevron-down" size={40} color="#00D9FF" />
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -124,9 +184,51 @@ const styles = StyleSheet.create({
     color: '#999',
     letterSpacing: 0.5,
   },
+  cancelButton: {
+    backgroundColor: '#FF4444',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginLeft: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
   moreIndicator: {
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
 });

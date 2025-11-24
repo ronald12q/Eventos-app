@@ -1,7 +1,10 @@
+import { EventData, getAllEvents } from '@/services/eventService';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,68 +14,51 @@ import {
   View,
 } from 'react-native';
 
-
-const EVENTOS_EJEMPLO = [
-  {
-    id: '1',
-    nombre: 'FIESTA NAVIDEÑA',
-    titulo: 'FIESTA NAVIDEÑA',
-    descripcion: 'PREPÁRATE PARA VIVIR UNA NOCHE INOLVIDABLE LLENA DE ESPÍRITU NAVIDEÑO EN EL CORAZÓN DE SAN SALVADOR. LA "FIESTA NAVIDEÑA" TE INVITA A SUMERGIRTE EN UN AMBIENTE FESTIVO CON MÚSICA EN VIVO, LUCES CENTELLEANTES, DELICIOSA COMIDA TÍPICA Y LA MEJOR COMPAÑÍA. ESTE EVENTO ES PERFECTO PARA CELEBRAR LA TEMPORADA DE VILLANCICOS, SORPRESAS ESPECIALES Y CREA RECUERDOS MÁGICOS MIENTRAS CELEBRAMOS JUNTOS LA ÉPOCA MÁS HERMOSA DEL AÑO. ¡NO TE PIERDAS ESTA OPORTUNIDAD ÚNICA DE COMPARTIR LA ALEGRÍA Y EL CALOR DE LA NAVIDAD!',
-    ubicacion: 'CENTRO HISTÓRICO, SAN SALVADOR',
-    asistentes: '100',
-    fecha: 'SÁBADO 24 DE DICIEMBRE DE 2025 12PM',
-    imagen: '',
-  },
-  {
-    id: '2',
-    nombre: 'PARTIDO DE FÚTBOL',
-    titulo: 'PARTIDO DE FÚTBOL',
-    descripcion: 'JUE, ESTADIO MÁGICO GONZÁLEZ 15 AGO 10 AM',
-    ubicacion: 'ESTADIO MÁGICO GONZÁLEZ',
-    asistentes: '150',
-    fecha: 'JUEVES 15 DE AGOSTO DE 2025 10AM',
-    imagen: '',
-  },
-  {
-    id: '3',
-    nombre: 'FIESTA NAVIDEÑA',
-    titulo: 'FIESTA NAVIDEÑA',
-    descripcion: 'CENTRO HISTÓRICO DE SAN SALVADOR, HORA 9 PM',
-    ubicacion: 'CENTRO HISTÓRICO, SAN SALVADOR',
-    asistentes: '80',
-    fecha: 'VIERNES 20 DE DICIEMBRE DE 2025 9PM',
-    imagen: '',
-  },
-  {
-    id: '4',
-    nombre: 'BABY SHOWER',
-    titulo: 'BABY SHOWER',
-    descripcion: 'CENTRO HISTÓRICO DE SAN SALVADOR, HORA 9 PM',
-    ubicacion: 'CENTRO HISTÓRICO, SAN SALVADOR',
-    asistentes: '50',
-    fecha: 'DOMINGO 10 DE ENERO DE 2026 9PM',
-    imagen: '',
-  },
-];
-
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [eventos, setEventos] = useState<EventData[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const handleEventPress = (evento: typeof EVENTOS_EJEMPLO[0]) => {
+  const loadEvents = async () => {
+    try {
+      setLoading(true);
+      const data = await getAllEvents();
+      setEventos(data);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Error al cargar eventos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+ 
+  useFocusEffect(
+    useCallback(() => {
+      loadEvents();
+    }, [])
+  );
+
+  const handleEventPress = (evento: EventData) => {
     router.push({
       pathname: '/event-details',
       params: {
         id: evento.id,
         nombre: evento.nombre,
         ubicacion: evento.ubicacion,
-        asistentes: evento.asistentes,
+        asistentes: evento.asistentes.length.toString(),
         descripcion: evento.descripcion,
-        fecha: evento.fecha,
-        imagen: evento.imagen,
+        fecha: `${evento.fecha} ${evento.hora}`,
       },
     });
   };
+
+
+  const filteredEventos = eventos.filter((evento) =>
+    evento.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    evento.descripcion.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    evento.ubicacion.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <View style={styles.container}>
@@ -100,24 +86,61 @@ export default function HomeScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionTitle}>EVENTOS DISPONIBLES</Text>
         
-        <View style={styles.eventsGrid}>
-          {EVENTOS_EJEMPLO.map((evento) => (
-            <TouchableOpacity 
-              key={evento.id} 
-              style={styles.eventCard}
-              onPress={() => handleEventPress(evento)}
-            >
-              <Text style={styles.eventTitle}>{evento.titulo}</Text>
-              <Text 
-                style={styles.eventDescription}
-                numberOfLines={3}
-                ellipsizeMode="tail"
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#00D9FF" />
+            <Text style={styles.loadingText}>Cargando eventos...</Text>
+          </View>
+        ) : filteredEventos.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="calendar-outline" size={60} color="#666" />
+            <Text style={styles.emptyText}>
+              {searchQuery ? 'No se encontraron eventos' : 'No hay eventos disponibles'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.eventsGrid}>
+            {filteredEventos.map((evento) => (
+              <TouchableOpacity 
+                key={evento.id} 
+                style={styles.eventCard}
+                onPress={() => handleEventPress(evento)}
               >
-                {evento.descripcion}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text style={styles.eventTitle}>{evento.nombre}</Text>
+                
+                <View style={styles.eventMetaContainer}>
+                  <View style={styles.eventMetaRow}>
+                    <View style={styles.eventMetaItem}>
+                      <Ionicons name="calendar-outline" size={14} color="#00D9FF" />
+                      <Text style={styles.eventMetaText}>{evento.fecha}</Text>
+                    </View>
+                    <View style={styles.eventMetaItem}>
+                      <Ionicons name="time-outline" size={14} color="#00D9FF" />
+                      <Text style={styles.eventMetaText}>{evento.hora}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.eventLocationRow}>
+                    <Ionicons name="location-outline" size={14} color="#00D9FF" />
+                    <Text style={styles.eventLocationText} numberOfLines={1}>
+                      {evento.ubicacion}
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={styles.eventDescriptionContainer}>
+                  <Text 
+                    style={styles.eventDescription}
+                    numberOfLines={3}
+                    ellipsizeMode="tail"
+                  >
+                    {evento.descripcion}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -185,10 +208,9 @@ const styles = StyleSheet.create({
     width: '48%',
     backgroundColor: '#2A2A2A',
     borderRadius: 15,
-    padding: 20,
+    padding: 15,
     marginBottom: 15,
-    minHeight: 150,
-    justifyContent: 'space-between',
+    height: 220,
   },
   eventTitle: {
     fontSize: 16,
@@ -197,10 +219,67 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     letterSpacing: 0.5,
   },
-  eventDescription: {
+  eventMetaContainer: {
+    marginBottom: 10,
+  },
+  eventMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  eventMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  eventMetaText: {
     fontSize: 11,
+    color: '#00D9FF',
+    fontWeight: '600',
+  },
+  eventLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  eventLocationText: {
+    fontSize: 11,
+    color: '#999',
+    flex: 1,
+  },
+  eventDescriptionContainer: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#3A3A3A',
+    paddingTop: 8,
+  },
+  eventDescription: {
+    fontSize: 10,
     color: '#B0B0B0',
-    lineHeight: 16,
+    lineHeight: 14,
     letterSpacing: 0.3,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
 });

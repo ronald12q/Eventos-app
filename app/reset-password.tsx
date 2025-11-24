@@ -3,14 +3,14 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 export default function ResetPasswordScreen() {
@@ -27,10 +27,18 @@ export default function ResetPasswordScreen() {
     setLoading(true);
     try {
       await resetPassword(email);
+      
+      setEmail('');
+      
       Alert.alert(
-        'Éxito', 
-        'Se ha enviado un correo para restablecer tu contraseña',
-        [{ text: 'OK', onPress: () => router.push('/login') }]
+        '¡Correo enviado!', 
+        'Revisa tu bandeja de entrada y sigue las instrucciones para restablecer tu contraseña.',
+        [
+          { 
+            text: 'Entendido', 
+            onPress: () => router.push('/login')
+          }
+        ]
       );
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al enviar correo');
