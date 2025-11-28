@@ -33,7 +33,6 @@ export interface UserData {
   username: string;
   email: string;
   userType: 'usuario' | 'organizador';
-  photoURL?: string | null;
   displayName?: string;
   createdAt: any;
   updatedAt: any;
@@ -62,7 +61,6 @@ export const registerUser = async (
       username: username,
       email: email,
       userType: userType,
-      photoURL: null,
       displayName: username,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -126,7 +124,6 @@ export const loginWithGoogle = async (idToken: string): Promise<User> => {
         username: user.displayName || 'Usuario',
         email: user.email || '',
         userType: 'usuario',
-        photoURL: user.photoURL,
         displayName: user.displayName || undefined,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
